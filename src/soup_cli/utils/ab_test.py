@@ -704,7 +704,7 @@ class MsprtRows:
 
     control: tuple[float, ...]
     treatment: tuple[float, ...]
-    skipped: dict[str, int]
+    skipped: Mapping[str, int]
 
     def skipped_note(self) -> str | None:
         """One line naming the skipped rows by reason, or ``None`` if none were."""
@@ -773,7 +773,9 @@ def read_msprt_rows(input_path: str, *, config: MsprtConfig) -> MsprtRows:
                 treatment.append(f_val)
 
     return MsprtRows(
-        control=tuple(control), treatment=tuple(treatment), skipped=skipped
+        control=tuple(control),
+        treatment=tuple(treatment),
+        skipped=MappingProxyType(skipped),
     )
 
 
