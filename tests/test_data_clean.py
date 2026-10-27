@@ -633,3 +633,31 @@ def test_cli_clean_command_json_output(tmp_path: Path, monkeypatch: pytest.Monke
     assert payload["total_clean"] == 1
     assert payload["total_modified"] == 1
     assert payload["dry_run"] is True
+
+
+def test_cli_clean_says_when_rows_are_not_a_recognised_format(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """#1818: an unreadable shape is reported, not silently cleaned as plaintext."""
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "unknown.jsonl"
+    source.write_text(
+        json.dumps({"alpha": "one\u200b"}) + "\n" + json.dumps({"beta": "two"}) + "\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "cleaned.jsonl"
+
+    result = runner.invoke(app, ["data", "clean", str(source), "-o", str(out)])
+
+    assert result.exit_code == 0, result.output
+    printed = _strip_ansi(result.output)
+    assert (
+        "rows are not in a recognised format; nothing was cleaned beyond character "
+        "sanitising"
+    ) in printed
+    # The first offending key set comes from the detection error, not a bare warning.
+    assert "Keys found:" in printed
+    assert "alpha" in printed
+    # The fallback still does the one thing it does: strip invisible characters.
+    assert "\u200b" not in out.read_text(encoding="utf-8")
+

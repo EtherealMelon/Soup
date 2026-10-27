@@ -270,6 +270,12 @@ row 91: 94% of step 340's loss, 3,900 tokens
 Inspect or drop this row, then retrain.
 ```
 
+`soup rewind --json` writes `run_id`, `step`, `spikes` and `rows`. The file is strict
+JSON: a non-finite loss or ratio is written as `null` and the object that held it
+carries `non_finite: true`, so `json.loads()` reads it without accepting the
+non-standard `NaN` / `Infinity` tokens. The flag keeps "the run measured a non-finite
+value" distinct from a field that was never measured (which is a plain `null`).
+
 Scope: task `sft` on the transformers and MLX backends, single process, on the plain
 text path. The recorder turns itself off, with one warning naming the reason, for
 resumed runs, `packing` / `padding_free`, multipack, vision, audio, a pre-tokenised
