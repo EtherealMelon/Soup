@@ -681,13 +681,13 @@ def msprt_step(
 # full of rows it cannot read is not answered with "collect more samples".
 SKIP_INVALID_JSON = "invalid JSON"
 SKIP_NOT_OBJECT = "not an object"
-SKIP_NO_ARM = "no arm"
+SKIP_ARM = "arm missing or not control/treatment"
 SKIP_METRIC = "metric missing or non-numeric"
 SKIP_NOT_FINITE = "metric not finite"
 _SKIP_REASONS = (
     SKIP_INVALID_JSON,
     SKIP_NOT_OBJECT,
-    SKIP_NO_ARM,
+    SKIP_ARM,
     SKIP_METRIC,
     SKIP_NOT_FINITE,
 )
@@ -757,7 +757,7 @@ def read_msprt_rows(input_path: str, *, config: MsprtConfig) -> MsprtRows:
                 continue
             arm = row.get("arm")
             if arm not in ("control", "treatment"):
-                skipped[SKIP_NO_ARM] += 1
+                skipped[SKIP_ARM] += 1
                 continue
             value = row.get(config.metric)
             if not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -802,11 +802,11 @@ __all__ = [
     "MsprtRows",
     "MsprtVerdict",
     "PRIOR_SCALE_ROWS",
+    "SKIP_ARM",
     "SKIP_INVALID_JSON",
     "SKIP_METRIC",
     "SKIP_NOT_FINITE",
     "SKIP_NOT_OBJECT",
-    "SKIP_NO_ARM",
     "SUPPORTED_METRICS",
     "msprt_step",
     "read_msprt_rows",
