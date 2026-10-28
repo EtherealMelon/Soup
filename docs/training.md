@@ -271,8 +271,8 @@ Inspect or drop this row, then retrain.
 ```
 
 `soup rewind --json` writes `run_id`, `step`, `spikes` and `rows`. The file is strict
-JSON: a non-finite loss or ratio is written as `null` and the object that held it
-carries `non_finite: true`, so `json.loads()` reads it without accepting the
+JSON: a non-finite loss, baseline or ratio is written as `null` and the object that
+held it carries `non_finite: true`, so `json.loads()` reads it without accepting the
 non-standard `NaN` / `Infinity` tokens. The flag keeps "the run measured a non-finite
 value" distinct from a field that was never measured (which is a plain `null`).
 

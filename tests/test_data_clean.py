@@ -661,3 +661,31 @@ def test_cli_clean_says_when_rows_are_not_a_recognised_format(
     # The fallback still does the one thing it does: strip invisible characters.
     assert "\u200b" not in out.read_text(encoding="utf-8")
 
+
+def test_cli_clean_json_keeps_the_unknown_format_warning_on_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """#1818: with ``--json`` stdout stays a clean document, the warning goes to stderr."""
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "unknown.jsonl"
+    source.write_text(
+        json.dumps({"alpha": "one\u200b"}) + "\n" + json.dumps({"beta": "two"}) + "\n",
+        encoding="utf-8",
+    )
+
+    # Ask this runner: Typer may use a vendored implementation whose API is
+    # independent of the installed standalone Click version.
+    import inspect
+
+    supports_separate_stderr = "mix_stderr" in inspect.signature(CliRunner).parameters
+    kwargs = {"mix_stderr": False} if supports_separate_stderr else {}
+    separate_runner = CliRunner(**kwargs)
+    result = separate_runner.invoke(
+        app, ["data", "clean", str(source), "--dry-run", "--json"]
+    )
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    payload = json.loads(result.stdout)
+    assert payload["total_scanned"] == 2
+    assert "not in a recognised format" in _strip_ansi(result.stderr)
+    assert "not in a recognised format" not in result.stdout
