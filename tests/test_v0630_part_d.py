@@ -8,6 +8,8 @@ import json
 import pytest
 from typer.testing import CliRunner
 
+from tests.conftest import strip_ansi
+
 runner = CliRunner()
 
 
@@ -406,8 +408,9 @@ def test_cli_ab_names_the_rows_it_skipped(tmp_path, monkeypatch):
     )
 
     assert result.exit_code == 0, (result.output, repr(result.exception))
-    assert "Not enough rows yet" in result.output
-    assert "Skipped rows: 1 no arm, 2 metric missing or non-numeric." in result.output
+    plain = strip_ansi(result.output)
+    assert "Not enough rows yet" in plain
+    assert "Skipped rows: 1 no arm, 2 metric missing or non-numeric." in plain
 
 
 def test_cli_ab_prints_no_skip_note_when_nothing_was_skipped(tmp_path, monkeypatch):
