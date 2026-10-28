@@ -16,7 +16,7 @@ from typing import Callable, Literal, Mapping, Optional
 from urllib.parse import urlparse
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from soup_cli import __version__
 from soup_cli.eval.results import newest_eval_rows
@@ -128,6 +128,38 @@ class MalformedSuiteError(ValueError):
     """Invalid YAML syntax or root shape that must still abort training setup."""
 
 
+def _format_error_loc(loc: tuple[object, ...]) -> str:
+    """Render a pydantic error location as ``tasks[0].name``."""
+    rendered = ""
+    for part in loc:
+        if isinstance(part, int):
+            rendered += f"[{part}]"
+        else:
+            rendered += ("." if rendered else "") + str(part)
+    return rendered
+
+
+def _suite_validation_message(
+    path: str, data: Mapping[str, object], exc: ValidationError
+) -> str:
+    """Turn pydantic's report into one that names the file and the fields."""
+    prefix = f"eval-gate suite '{path}'"
+    if not data:
+        return (
+            f"{prefix} is empty: it needs 'suite' (a name) and "
+            f"'tasks' (a list of tasks)"
+        )
+    problems: list[str] = []
+    for error in exc.errors():
+        loc = _format_error_loc(error["loc"])
+        if error["type"] == "missing":
+            problems.append(f"'{loc}' is required")
+        else:
+            problems.append(f"{loc}: {error['msg']}")
+    return f"{prefix}: " + "; ".join(problems)
+
+
+
 def _require_gate_tasks(suite: EvalSuite) -> None:
     if not suite.tasks:
         raise ValueError(
@@ -169,7 +201,10 @@ def load_suite(path: str) -> EvalSuite:
         )
     else:
         data = dict(raw)
-    suite = EvalSuite(**data)
+    try:
+        suite = EvalSuite(**data)
+    except ValidationError as exc:
+        raise ValueError(_suite_validation_message(path, data, exc)) from exc
     _require_gate_tasks(suite)
     return suite
 

@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from typing import Callable
 from unittest.mock import MagicMock
 
-import pydantic
 import pytest
 import yaml
 from rich.console import Console
@@ -212,7 +211,7 @@ def test_training_callback_empty_gate_still_warns_and_stays_inert(
     )
 
     assert "eval gate: could not load suite" in caplog.text
-    assert "Field required" in caplog.text
+    assert "is empty: it needs 'suite'" in caplog.text
     assert callback._gate_suite is None
     callback._build_gate_generate_fn.assert_not_called()
 
@@ -229,30 +228,64 @@ def test_cli_control_missing_suite_name_exits_usage_error(
     assert "Cannot load suite:" in output
 
 
-def test_load_suite_empty_file_raises_validation_error(
+INVALID_VALIDATION_SUITES = [
+    (
+        "",
+        "is empty: it needs 'suite' (a name) and 'tasks' (a list of tasks)",
+        "empty-file",
+    ),
+    ("tasks: []\n", "'suite' is required", "missing-suite"),
+    (
+        "suite: control\n"
+        "tasks:\n"
+        "  - type: custom\n"
+        "    name: 12\n"
+        "    scorer: exact\n"
+        "    threshold: 0.0\n",
+        "tasks[0].name: Input should be a valid string",
+        "wrong-field-type",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "content, expected_fragment, _id",
+    INVALID_VALIDATION_SUITES,
+    ids=[s[2] for s in INVALID_VALIDATION_SUITES],
+)
+def test_load_suite_validation_error_names_file_and_field(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    content: str, expected_fragment: str, _id: str,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    path = _write_suite_text(tmp_path, "")
-    with pytest.raises(pydantic.ValidationError) as caught:
+    path = _write_suite_text(tmp_path, content)
+    with pytest.raises(ValueError) as caught:
         gate.load_suite(str(path))
     message = str(caught.value)
-    assert "1 validation error for EvalSuite" in message
-    assert "suite" in message
-    assert "Field required" in message
+    assert f"eval-gate suite '{path}'" in message
+    assert expected_fragment in message
+    assert "errors.pydantic.dev" not in message
 
 
-def test_cli_eval_gate_empty_file_exits_usage_error(
+@pytest.mark.parametrize(
+    "content, expected_fragment, _id",
+    INVALID_VALIDATION_SUITES,
+    ids=[s[2] for s in INVALID_VALIDATION_SUITES],
+)
+def test_cli_eval_gate_validation_error_names_file_and_field(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    content: str, expected_fragment: str, _id: str,
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    path = _write_suite_text(tmp_path, "")
+    path = _write_suite_text(tmp_path, content)
     monkeypatch.setattr(eval_command, "console", Console(width=200))
     result = CliRunner().invoke(app, ["eval", "gate", "--suite", str(path)])
     output = " ".join(strip_ansi(result.output).split())
     assert result.exit_code == 3, (result.output, repr(result.exception))
-    assert "Cannot load suite: 1 validation error for EvalSuite" in output
-    assert "Field required" in output
+    assert "Cannot load suite:" in output
+    assert f"eval-gate suite '{path}'" in output
+    assert expected_fragment in output
+    assert "errors.pydantic.dev" not in output
 
 
 def test_cli_control_valid_suite_passes(
