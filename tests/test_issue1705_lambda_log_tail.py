@@ -116,6 +116,7 @@ class TestLambdaLogTailOnFailure:
         lines = user_data.splitlines()
         create = f": > {log}"
         assert create in lines
+        assert lines.index("mkdir -p /home/ubuntu/soup") < lines.index(create)
         assert lines.index(create) < next(
             i for i, line in enumerate(lines) if line.startswith("apt-get update")
         )
